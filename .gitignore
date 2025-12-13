@@ -1,0 +1,37 @@
+# Virtual Environment
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / Packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Mac
+.DS_Store
+
+# Project Specific
+dataset/
+*.h5
+uploads/
+.env
+
+# Jupyter Notebook
+.ipynb_checkpoints
