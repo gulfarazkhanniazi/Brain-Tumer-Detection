@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Additional custom styles if needed, but try to use utility classes */
+html,
+body {
+  height: 100%;
+}
