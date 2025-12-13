@@ -34,7 +34,8 @@ uploads/
 .env
 
 # Jupyter Notebook
-.ipynb_checkpoints
+backend/__pycache__
+backend/uploads
 
 
 # Logs

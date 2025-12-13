@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start": "concurrently \"npm run dev\" \"cd .. && source venv/bin/activate && python app.py\"",
+    "start": "concurrently \"npm run dev\" \"cd ../backend && source ../venv/bin/activate && python app.py\"",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
