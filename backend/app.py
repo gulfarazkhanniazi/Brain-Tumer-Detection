@@ -22,18 +22,23 @@ IMAGE_SIZE = config.IMAGE_SIZE
 MODEL_PATH = config.MODEL_PATH
 LABELS_PATH = config.LABELS_PATH
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 # Check if model exists
 if not os.path.exists(MODEL_PATH):
-    print(f"Error: Model not found at {MODEL_PATH}")
-    print("Please run train_and_test.py to train the model first.")
-    # We won't exit here to allow the app to at least start (maybe for health checks), 
-    # but we will handle the missing model in the prediction route if needed.
-    # Actually, for this simple app, it's probably better to load it if it exists, or handle gracefully.
+    logger.error(f"Model not found at {MODEL_PATH}")
+    logger.info("Please run train_and_test.py to train the model first.")
     model = None
 else:
-    print("Loading model...", flush=True)
-    model = load_model(MODEL_PATH)
-    print("Model loaded.", flush=True)
+    logger.info("Loading model...")
+    try:
+        model = load_model(MODEL_PATH)
+        logger.info("Model loaded successfully.")
+    except Exception as e:
+        logger.error(f"Failed to load model: {e}")
+        model = None
 
 # Load labels if exist
 if os.path.exists(LABELS_PATH):
@@ -51,6 +56,25 @@ CORS(app)  # Allow React frontend to access this API
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def validate_image_header(stream):
+    """
+    Reads the first few bytes of the file stream to verify it's a valid image.
+    Resets stream position after reading.
+    """
+    header = stream.read(512)
+    stream.seek(0)
+    
+    if len(header) < 8:
+        return False
+        
+    # JPEG/JPG: FF D8 FF
+    if header.startswith(b'\xff\xd8\xff'):
+        return True
+    # PNG: 89 50 4E 47 0D 0A 1A 0A
+    if header.startswith(b'\x89PNG\r\n\x1a\n'):
+        return True
+    return False
 
 def preprocess_image(img_path):
     img = load_img(img_path, target_size=(IMAGE_SIZE, IMAGE_SIZE))
@@ -81,21 +105,29 @@ def predict():
     if file.filename == "":
         return jsonify({"error": "No selected file", "message": "No file was selected for upload."}), 400
 
-    # 4. Check file type validation
+    # 4. Check file extension
     if not allowed_file(file.filename):
         return jsonify({
             "error": "Invalid file type", 
             "message": f"Allowed extensions are: {', '.join(ALLOWED_EXTENSIONS)}"
         }), 400
 
+    # 5. Check magic bytes (Content Validation)
+    if not validate_image_header(file.stream):
+        return jsonify({
+            "error": "Invalid file content", 
+            "message": "The file does not appear to be a valid image."
+        }), 400
+
     try:
-        # 5. Save securely
+        # 6. Save securely
         filename = secure_filename(file.filename)
         os.makedirs("uploads", exist_ok=True)
         file_path = os.path.join("uploads", filename)
         file.save(file_path)
+        logger.info(f"File saved to {file_path}")
 
-        # 6. Predict
+        # 7. Predict
         try:
             img_array = preprocess_image(file_path)
             prediction = model.predict(img_array)
@@ -106,19 +138,21 @@ def predict():
                 "predicted_label": unique_labels[predicted_idx] if unique_labels else f"Class {predicted_idx}",
                 "confidence": round(confidence * 100, 2)
             }
+            logger.info(f"Prediction success: {result}")
             return jsonify(result)
         
         except Exception as e:
-            logging.error(f"Prediction error: {e}")
+            logger.error(f"Prediction error: {e}")
             return jsonify({"error": "Prediction failed", "message": str(e)}), 500
         
         finally:
-            # 7. Cleanup
+            # 8. Cleanup
             if os.path.exists(file_path):
                 os.remove(file_path)
+                logger.info(f"Cleaned up file {file_path}")
 
     except Exception as e:
-        logging.error(f"System error: {e}")
+        logger.error(f"System error: {e}")
         return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
 if __name__ == "__main__":

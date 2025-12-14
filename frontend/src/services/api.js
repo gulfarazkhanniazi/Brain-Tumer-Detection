@@ -10,14 +10,17 @@ export const predictImage = async (file) => {
             body: formData,
         });
 
+        const data = await response.json().catch(() => null);
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            // Prefer the backend's "message" or "error", fallback to status text
+            const errorMessage = data?.message || data?.error || `Request failed with status ${response.status}`;
+            throw new Error(errorMessage);
         }
 
-        return await response.json();
+        return data;
     } catch (error) {
         console.error("API Error:", error);
-        throw error;
+        throw error; // Re-throw so component can handle it
     }
 };
